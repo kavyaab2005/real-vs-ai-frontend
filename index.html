@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* Basic Reset */
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; }
+
+  body 
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1f1f2e, #11111a);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: white;
+  }
+
+  /* Glass Card */
+  .card {
+    backdrop-filter: blur(15px);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    margin-top: 2rem;
+    width: 90%;
+    max-width: 600px;
+    transition: all 0.3s ease;
+  }
+
+  /* Header */
+  h1 { text-align: center; font-size: 2rem; margin-bottom: 1rem; color: #4F8EF7; }
+
+  /* Tabs */
+  .tabs { display: flex; justify-content: center; gap: 2rem; margin-bottom: 1.5rem; position: relative; }
+  .tab {
+    font-weight: 700;
+    padding-bottom: 0.5rem;
+    cursor: pointer;
+    position: relative;
+  }
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: #4F8EF7;
+    border-radius: 2px;
+  }
+
+  /* Inputs */
+  textarea, input[type="file"] {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 15px;
+    border: none;
+    outline: none;
+    background: rgba(255,255,255,0.05);
+    color: white;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    transition: 0.3s;
+  }
+  textarea:focus, input[type="file"]:focus { box-shadow: 0 0 10px #4F8EF7; }
+
+  /* Button */
+  button {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 15px;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 1rem;
+    background: linear-gradient(90deg, #4F8EF7, #7f5af0);
+    transition: 0.3s;
+  }
+  button:hover { transform: scale(1.05); }
+
+  /* Result */
+  #resultCard {
+    display: none;
+    margin-top: 2rem;
+    text-align: center;
+  }
+  .confidence-bar {
+    height: 20px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.1);
+    margin: 1rem 0;
+    overflow: hidden;
+  }
+  .confidence-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 10px;
+    transition: width 1s ease;
+  }
+
+  /* Factors Accordion */
+  .factors {
+    text-align: left;
+    margin-top: 1rem;
+  }
+  .factor { margin-bottom: 0.5rem; background: rgba(255,255,255,0.05); padding: 0.5rem 1rem; border-radius: 10px; cursor: pointer; transition: 0.3s; }
+  .factor:hover { background: rgba(255,255,255,0.1); }
+</style>
+</head>
+<body>
+
+<h1>AI vs Real Detector</h1>
+
+<div class="card">
+  <div class="tabs">
+    <div class="tab active" id="textTab">Text</div>
+    <div class="tab" id="imageTab">Image</div>
+  </div>
+
+  <textarea id="textInput" placeholder="Paste text here..."></textarea>
+  <input type="file" id="imageInput" accept="image/*" style="display:none;">
+
+  <button onclick="submitDetection()">Detect AI</button>
+</div>
+
+<div class="card" id="resultCard">
+  <h2 id="resultText"></h2>
+  <div class="confidence-bar"><div class="confidence-fill" id="confidenceFill"></div></div>
+  <p>Confidence: <span id="confidencePercent"></span>%</p>
+  <div class="factors" id="factorsList"></div>
+</div>
+
+<script>
+  const textTab = document.getElementById('textTab');
+  const imageTab = document.getElementById('imageTab');
+  const textInput = document.getElementById('textInput');
+  const imageInput = document.getElementById('imageInput');
+
+  textTab.onclick = () => {
+    textTab.classList.add('active');
+    imageTab.classList.remove('active');
+    textInput.style.display = 'block';
+    imageInput.style.display = 'none';
+  }
+  imageTab.onclick = () => {
+    imageTab.classList.add('active');
+    textTab.classList.remove('active');
+    textInput.style.display = 'none';
+    imageInput.style.display = 'block';
+  }
+
+  async function submitDetection() {
+    const type = textInput.style.display === 'block' ? 'text' : 'image';
+    const formData = new FormData();
+    formData.append('type', type);
+    if(type==='text') formData.append('text', textInput.value);
+    if(type==='image') formData.append('image', imageInput.files[0]);
+
+    const res = await fetch('http://localhost:5000/detect', { method:'POST', body:formData });
+    const data = await res.json();
+
+    document.getElementById('resultCard').style.display = 'block';
+    document.getElementById('resultText').textContent = Result: ${data.result};
+    document.getElementById('confidencePercent').textContent = data.confidence;
+    const fill = document.getElementById('confidenceFill');
+    fill.style.background = data.result==='AI'?'#EA5455':'#28C76F';
+    fill.style.width = '0%';
+    setTimeout(()=>{ fill.style.width = data.confidence+'%'; }, 100);
+
+    const factorsList = document.getElementById('factorsList');
+    factorsList.innerHTML = '';
+    data.explanation.forEach(f=>{
+      const div = document.createElement('div');
+      div.textContent = f;
+      div.className='factor';
+      factorsList.appendChild(div);
+    });
+  }
+</script>
+</body>
+</html>
